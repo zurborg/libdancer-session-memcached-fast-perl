@@ -1,0 +1,43 @@
+#!perl -T
+
+use Modern::Perl;
+use Test::Most;
+
+plan tests => 3;
+
+{
+
+    package Webservice;
+    use Dancer;
+
+    setting session_memcached_servers => '/tmp/memcached.socket';
+    set session                       => 'Memcached::Fast';
+
+    get '/a' => sub { session->id };
+    get '/b' => sub { session( 'time' => time ) };
+    get '/c' => sub { session('time') };
+    get '/d' => sub { session->destroy };
+}
+
+use Dancer::Test;
+
+my $R;
+
+$R = dancer_response GET => '/a';
+my $id = $R->{content};
+
+$R = dancer_response GET => '/a';
+is $R->{content} => $id, 'session id survive';
+
+$R = dancer_response GET => '/b';
+my $time = $R->{content};
+
+$R = dancer_response GET => '/c';
+is $R->{content} => $time, 'storage get time';
+
+dancer_response GET => '/d';
+$R = dancer_response GET => '/a';
+isnt $R->{content} => $id, 'session destroy';
+
+done_testing;
+
