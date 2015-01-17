@@ -11,10 +11,9 @@ use mro;
 use Carp;
 use Cache::Memcached::Fast;
 use CBOR::XS qw(encode_cbor decode_cbor);
-use Dancer::Config 'setting';
+use Dancer::Config qw(setting);
+use Dancer qw();
 use parent 'Dancer::Session::Abstract';
-
-my $MCF;
 
 sub init {
     my $self = shift;
@@ -29,72 +28,77 @@ sub init {
 
     my $namespace = setting("session_memcached_namespace") || __PACKAGE__;
 
-    $MCF = Cache::Memcached::Fast->new(
+    $self->{cmf} = Cache::Memcached::Fast->new(
         {
             servers    => $servers,
-            namespace  => $namespace,
             check_args => '',
         }
     );
 
-    return $self;
-}
-
-sub _freeze {
-    encode_cbor shift;
-}
-
-sub _thaw {
-    bless decode_cbor(pop) => shift;
-}
-
-=for Pod::Coverage TO_CBOR
-
-=cut
-
-sub TO_CBOR {
-    +{ ( %{ shift() } ) };
-}
-
-sub _store {
-    my ($self) = @_;
-    $MCF->set( $self->id => $self->_freeze );
     $self;
+}
+
+sub _engine {
+    Dancer::engine('session');
+}
+
+sub _mkns {
+    my $id = shift;
+    my $ns = setting("session_memcached_namespace") || __PACKAGE__;
+    return "$ns#$id";
+}
+
+sub _boot {
+    my ( $class, %config ) = @_;
+    my $engine = _engine;
+    bless {
+        id  => undef,
+        cmf => $engine->{cmf},
+        %config
+    } => $class;
 }
 
 sub create {
     my ($class) = @_;
-    my $self = $class->new;
-    $self->_store;
+    my $self = $class->_boot( id => $class->build_id );
+    $self->{cmf}->namespace( _mkns( $self->id ) );
+    my $expire = 2**20;
+	# TODO: use $expire from... session cookie?
+    $self->{cmf}->set( '' => time, $expire );
     $self;
 }
 
 sub retrieve {
     my ( $class, $id ) = @_;
-    my $cbor = $MCF->get($id);
-    return unless defined $cbor;
-    $class->_thaw($cbor);
+    my $self = $class->_boot( id => $id );
+    $self->{cmf}->namespace( _mkns( $self->id ) );
+    my $time = $self->{cmf}->get('');
+    return unless defined $time and $time =~ m{^\d+$};
+    $self;
 }
 
 sub get_value {
     my ( $self, $key ) = @_;
-    $self->{$key};
+    my $value = $self->{cmf}->get($key);
+    return unless defined $value;
+    $value = decode_cbor $value;
+    $value;
 }
 
 sub set_value {
     my ( $self, $key, $value ) = @_;
-    $self->{$key} = $value;
+    $self->{cmf}->set( $key => encode_cbor $value);
 }
 
 sub destroy {
     my ($self) = @_;
-    $MCF->delete( $self->id );
+    $self->{cmf}->flush_all;
     undef;
 }
 
 sub flush {
     my $self = shift;
-    $self->_store;
+    $self->{cmf}->nowait_push;
     $self;
 }
 
