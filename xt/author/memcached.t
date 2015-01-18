@@ -10,8 +10,9 @@ plan tests => 3;
     package Webservice;
     use Dancer;
 
-    setting session_memcached_servers => '/tmp/memcached.socket';
-    set session                       => 'Memcached::Fast';
+    setting session_memcached_fast_servers => '/tmp/memcached.socket';
+    set appname                            => __PACKAGE__;
+    set session                            => 'Memcached::Fast';
 
     get '/a' => sub { session->id };
     get '/b' => sub { session( 'time' => time ) };
