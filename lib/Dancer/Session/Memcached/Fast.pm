@@ -12,21 +12,25 @@ use Carp;
 use Cache::Memcached::Fast;
 use CBOR::XS qw(encode_cbor decode_cbor);
 use Dancer::Config qw(setting);
-use Dancer qw();
+use Dancer qw(config);
 use parent 'Dancer::Session::Abstract';
+
+my $setting_prefix = 'session_memcached_fast_';
+
+sub _setting {
+    setting( $setting_prefix . shift(), @_ );
+}
 
 sub init {
     my $self = shift;
 
     $self->next::method(@_);
 
-    my $servers = setting("session_memcached_servers");
+    my $servers = _setting('servers');
     croak "The setting session_memcached_servers must be defined"
       unless defined $servers;
 
     $servers = [ split /,/, $servers ];
-
-    my $namespace = setting("session_memcached_namespace") || __PACKAGE__;
 
     $self->{cmf} = Cache::Memcached::Fast->new(
         {
@@ -44,7 +48,7 @@ sub _engine {
 
 sub _mkns {
     my $id = shift;
-    my $ns = setting("session_memcached_namespace") || __PACKAGE__;
+    my $ns = _setting('namespace') || config->{appname};
     return "$ns#$id";
 }
 
