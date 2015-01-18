@@ -58,13 +58,26 @@ sub _boot {
     } => $class;
 }
 
+sub _set_expire {
+    my ( $self, $expire ) = @_;
+    $expire //= setting('session_expires');
+    if ($expire) {
+        if ( $expire !~ m{^\d+$} ) {
+            $expire = Dancer::Cookie::_parse_duration($expire);
+        }
+        $expire -= time;
+    }
+    else {
+        $expire = undef;
+    }
+    $self->{cmf}->set( '' => time, $expire );
+}
+
 sub create {
     my ($class) = @_;
     my $self = $class->_boot( id => $class->build_id );
     $self->{cmf}->namespace( _mkns( $self->id ) );
-    my $expire = 2**20;
-	# TODO: use $expire from... session cookie?
-    $self->{cmf}->set( '' => time, $expire );
+    $self->_set_expire;
     $self;
 }
 
@@ -74,6 +87,7 @@ sub retrieve {
     $self->{cmf}->namespace( _mkns( $self->id ) );
     my $time = $self->{cmf}->get('');
     return unless defined $time and $time =~ m{^\d+$};
+    $self->_set_expire;
     $self;
 }
 
