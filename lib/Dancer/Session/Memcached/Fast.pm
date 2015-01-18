@@ -7,6 +7,20 @@ package Dancer::Session::Memcached::Fast;
 
 # VERSION
 
+=head1 DESCRIPTION
+
+This session engine uses L<Cache::Memcached::Fast> as backend and L<CBOR::XS> for serialization.
+
+=head1 CONFIGURATION
+
+In config.yml:
+
+	session: "Memcached::Fast"
+	session_memcached_fast_servers: "1.2.3.4"
+	session_memcached_fast_namespace: "foobar" # defaults to config->{appname}
+
+=cut
+
 use mro;
 use Carp;
 use Cache::Memcached::Fast;
