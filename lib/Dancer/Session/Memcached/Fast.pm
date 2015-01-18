@@ -81,8 +81,7 @@ sub get_value {
     my ( $self, $key ) = @_;
     my $value = $self->{cmf}->get($key);
     return unless defined $value;
-    $value = decode_cbor $value;
-    $value;
+    decode_cbor $value;
 }
 
 sub set_value {
