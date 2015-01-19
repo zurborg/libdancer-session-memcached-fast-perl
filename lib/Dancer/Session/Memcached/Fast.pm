@@ -26,13 +26,20 @@ use Carp;
 use Cache::Memcached::Fast;
 use CBOR::XS qw(encode_cbor decode_cbor);
 use Dancer::Config qw(setting);
-use Dancer qw(config);
 use parent 'Dancer::Session::Abstract';
 
 my $setting_prefix = 'session_memcached_fast_';
 
 sub _setting {
     setting( $setting_prefix . shift(), @_ );
+}
+
+sub _config {
+    Dancer::Config::settings()
+}
+
+sub new {
+    shift->next::method(@_);
 }
 
 sub init {
@@ -62,7 +69,7 @@ sub _engine {
 
 sub _mkns {
     my $id = shift;
-    my $ns = _setting('namespace') || config->{appname};
+    my $ns = _setting('namespace') || _config->{appname};
     return "$ns#$id";
 }
 
